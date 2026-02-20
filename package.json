@@ -1,0 +1,7 @@
+{
+  "name": "picker",
+  "private": true,
+  "scripts": {
+    "dev": "bunx live-server --port=3456 --no-browser"
+  }
+}

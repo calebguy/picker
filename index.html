@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>picker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      user-select: none;
+      font-family: system-ui, sans-serif;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+    }
+    #sv-canvas {
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+    }
+    .hue-row {
+      display: flex;
+      align-items: center;
+      height: 80px;
+      flex-shrink: 0;
+    }
+    .color-preview {
+      width: 80px;
+      height: 80px;
+      flex-shrink: 0;
+      border: 2px solid #fff;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+    }
+    #hue-canvas {
+      flex: 1;
+      height: 80px;
+      display: block;
+      cursor: crosshair;
+    }
+    .input-row {
+      display: flex;
+      align-items: center;
+      height: 44px;
+      flex-shrink: 0;
+      padding: 0 12px;
+      gap: 12px;
+      background: #1a1a1a;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #ccc;
+    }
+    .input-row label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .input-row input {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      color: #fff;
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 4px 6px;
+      outline: none;
+    }
+    .input-row input:focus {
+      border-color: #888;
+    }
+    .input-row .hex-input {
+      width: 80px;
+    }
+    .input-row .rgb-input {
+      width: 44px;
+      text-align: center;
+    }
+    .copied-msg {
+      position: fixed;
+      bottom: 56px;
+      right: 12px;
+      font-size: 0.75rem;
+      color: #8f8;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="sv-canvas"></canvas>
+  <div class="hue-row">
+    <div class="color-preview" id="preview"></div>
+    <canvas id="hue-canvas"></canvas>
+  </div>
+  <div class="input-row">
+    <label>HEX <input type="text" class="hex-input" id="hexInput" value="#FF0000" maxlength="7" spellcheck="false"></label>
+    <label>R <input type="number" class="rgb-input" id="rInput" min="0" max="255" value="255"></label>
+    <label>G <input type="number" class="rgb-input" id="gInput" min="0" max="255" value="0"></label>
+    <label>B <input type="number" class="rgb-input" id="bInput" min="0" max="255" value="0"></label>
+    <span id="copiedMsg" class="copied-msg" style="position:static;font-size:0.75rem;color:#8f8;"></span>
+  </div>
+
+  <script>
+    const svCanvas = document.getElementById('sv-canvas');
+    const svCtx = svCanvas.getContext('2d');
+    const hueCanvas = document.getElementById('hue-canvas');
+    const hueCtx = hueCanvas.getContext('2d');
+    const preview = document.getElementById('preview');
+    const hexInput = document.getElementById('hexInput');
+    const rInput = document.getElementById('rInput');
+    const gInput = document.getElementById('gInput');
+    const bInput = document.getElementById('bInput');
+    const copiedMsg = document.getElementById('copiedMsg');
+
+    let hue = 0;
+    let sat = 0.5;
+    let val = 0.7;
+    let draggingSV = false;
+    let draggingHue = false;
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const hueH = 80;
+      const inputH = 44;
+      const w = window.innerWidth;
+      const h = window.innerHeight - hueH - inputH;
+
+      svCanvas.width = w * dpr;
+      svCanvas.height = h * dpr;
+      svCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const hueW = w - 80;
+      hueCanvas.width = hueW * dpr;
+      hueCanvas.height = hueH * dpr;
+      hueCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      drawSV();
+      drawHue();
+    }
+
+    function hsvToRgb(h, s, v) {
+      let r, g, b;
+      const i = Math.floor(h / 60) % 6;
+      const f = h / 60 - Math.floor(h / 60);
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+      switch (i) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    function rgbToHsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const d = max - min;
+      let h = 0, s = max === 0 ? 0 : d / max, v = max;
+      if (d !== 0) {
+        switch (max) {
+          case r: h = ((g - b) / d + 6) % 6; break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h *= 60;
+      }
+      return [h, s, v];
+    }
+
+    function drawSV() {
+      const w = svCanvas.clientWidth;
+      const h = svCanvas.clientHeight;
+      const [hr, hg, hb] = hsvToRgb(hue, 1, 1);
+
+      const gradH = svCtx.createLinearGradient(0, 0, w, 0);
+      gradH.addColorStop(0, 'rgb(255,255,255)');
+      gradH.addColorStop(1, 'rgb(' + hr + ',' + hg + ',' + hb + ')');
+      svCtx.fillStyle = gradH;
+      svCtx.fillRect(0, 0, w, h);
+
+      const gradV = svCtx.createLinearGradient(0, 0, 0, h);
+      gradV.addColorStop(0, 'rgba(0,0,0,0)');
+      gradV.addColorStop(1, 'rgba(0,0,0,1)');
+      svCtx.fillStyle = gradV;
+      svCtx.fillRect(0, 0, w, h);
+
+      const cx = sat * w;
+      const cy = (1 - val) * h;
+      svCtx.beginPath();
+      svCtx.arc(cx, cy, 12, 0, Math.PI * 2);
+      svCtx.strokeStyle = '#fff';
+      svCtx.lineWidth = 3;
+      svCtx.stroke();
+      svCtx.beginPath();
+      svCtx.arc(cx, cy, 14, 0, Math.PI * 2);
+      svCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+      svCtx.lineWidth = 1;
+      svCtx.stroke();
+    }
+
+    function drawHue() {
+      const w = hueCanvas.clientWidth;
+      const h = hueCanvas.clientHeight;
+      const grad = hueCtx.createLinearGradient(0, 0, w, 0);
+      for (let i = 0; i <= 6; i++) {
+        const [r, g, b] = hsvToRgb(i * 60, 1, 1);
+        grad.addColorStop(i / 6, 'rgb(' + r + ',' + g + ',' + b + ')');
+      }
+      hueCtx.fillStyle = grad;
+      hueCtx.fillRect(0, 0, w, h);
+
+      const x = (hue / 360) * w;
+      hueCtx.beginPath();
+      hueCtx.rect(x - 3, 0, 6, h);
+      hueCtx.strokeStyle = '#fff';
+      hueCtx.lineWidth = 3;
+      hueCtx.stroke();
+      hueCtx.beginPath();
+      hueCtx.rect(x - 4, 0, 8, h);
+      hueCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+      hueCtx.lineWidth = 1;
+      hueCtx.stroke();
+    }
+
+    function updateColor() {
+      const [r, g, b] = hsvToRgb(hue, sat, val);
+      const hex = rgbToHex(r, g, b);
+      preview.style.background = hex;
+      hexInput.value = hex;
+      rInput.value = r;
+      gInput.value = g;
+      bInput.value = b;
+      drawSV();
+      drawHue();
+    }
+
+    function handleSV(e) {
+      const rect = svCanvas.getBoundingClientRect();
+      const x = (e.clientX ?? e.touches[0].clientX) - rect.left;
+      const y = (e.clientY ?? e.touches[0].clientY) - rect.top;
+      sat = Math.max(0, Math.min(1, x / rect.width));
+      val = Math.max(0, Math.min(1, 1 - y / rect.height));
+      updateColor();
+    }
+
+    svCanvas.addEventListener('mousedown', (e) => { draggingSV = true; handleSV(e); });
+    svCanvas.addEventListener('touchstart', (e) => { draggingSV = true; handleSV(e); e.preventDefault(); });
+
+    function handleHue(e) {
+      const rect = hueCanvas.getBoundingClientRect();
+      const x = (e.clientX ?? e.touches[0].clientX) - rect.left;
+      hue = Math.max(0, Math.min(360, (x / rect.width) * 360));
+      updateColor();
+    }
+
+    hueCanvas.addEventListener('mousedown', (e) => { draggingHue = true; handleHue(e); });
+    hueCanvas.addEventListener('touchstart', (e) => { draggingHue = true; handleHue(e); e.preventDefault(); });
+
+    window.addEventListener('mousemove', (e) => {
+      if (draggingSV) handleSV(e);
+      if (draggingHue) handleHue(e);
+    });
+    window.addEventListener('touchmove', (e) => {
+      if (draggingSV) handleSV(e);
+      if (draggingHue) handleHue(e);
+    });
+    window.addEventListener('mouseup', () => { draggingSV = false; draggingHue = false; });
+    window.addEventListener('touchend', () => { draggingSV = false; draggingHue = false; });
+
+    function setFromRgb(r, g, b) {
+      [hue, sat, val] = rgbToHsv(r, g, b);
+      updateColor();
+    }
+
+    hexInput.addEventListener('input', () => {
+      const v = hexInput.value.trim();
+      const m = v.match(/^#?([0-9a-f]{6})$/i);
+      if (m) {
+        const n = parseInt(m[1], 16);
+        setFromRgb((n >> 16) & 255, (n >> 8) & 255, n & 255);
+      }
+    });
+
+    hexInput.addEventListener('click', () => {
+      navigator.clipboard.writeText(hexInput.value);
+      copiedMsg.textContent = 'Copied!';
+      setTimeout(() => copiedMsg.textContent = '', 1500);
+    });
+
+    function handleRgbInput() {
+      const r = Math.max(0, Math.min(255, parseInt(rInput.value) || 0));
+      const g = Math.max(0, Math.min(255, parseInt(gInput.value) || 0));
+      const b = Math.max(0, Math.min(255, parseInt(bInput.value) || 0));
+      setFromRgb(r, g, b);
+    }
+
+    rInput.addEventListener('input', handleRgbInput);
+    gInput.addEventListener('input', handleRgbInput);
+    bInput.addEventListener('input', handleRgbInput);
+
+    window.addEventListener('resize', resize);
+    resize();
+    updateColor();
+  </script>
+</body>
+</html>
