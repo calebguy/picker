@@ -15,43 +15,54 @@
     body {
       display: flex;
       flex-direction: column;
-      background: #fff;
+      background: #111;
+      height: 100dvh;
     }
     #sv-canvas {
       flex: 1;
+      min-height: 0;
       display: block;
       cursor: crosshair;
+      touch-action: none;
     }
     .hue-row {
       display: flex;
       align-items: center;
       height: 80px;
       flex-shrink: 0;
-    }
-    .color-preview {
-      width: 80px;
-      height: 80px;
-      flex-shrink: 0;
-      border: 2px solid #fff;
-      background: #fff;
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+      background: #000;
     }
     #hue-canvas {
       flex: 1;
-      height: 80px;
+      height: 100%;
       display: block;
       cursor: crosshair;
+      touch-action: none;
     }
+    .color-preview {
+      width: 80px;
+      height: 100%;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .fullscreen-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      cursor: pointer;
+    }
+    .fullscreen-preview.active { display: block; }
     .input-row {
       display: flex;
       align-items: center;
-      height: 44px;
+      flex-wrap: wrap;
       flex-shrink: 0;
-      padding: 0 12px;
-      gap: 12px;
-      background: #1a1a1a;
+      padding: 8px 12px;
+      gap: 8px 12px;
+      background: #111;
       font-family: monospace;
-      font-size: 0.85rem;
+      font-size: 16px;
       color: #ccc;
     }
     .input-row label {
@@ -62,21 +73,20 @@
     .input-row input {
       background: #2a2a2a;
       border: 1px solid #444;
-      border-radius: 4px;
       color: #fff;
       font-family: monospace;
-      font-size: 0.85rem;
-      padding: 4px 6px;
+      font-size: 16px;
+      padding: 6px 8px;
       outline: none;
     }
     .input-row input:focus {
       border-color: #888;
     }
     .input-row .hex-input {
-      width: 80px;
+      width: 110px;
     }
     .input-row .rgb-input {
-      width: 44px;
+      width: 64px;
       text-align: center;
     }
     .copied-msg {
@@ -87,20 +97,117 @@
       color: #8f8;
       z-index: 10;
     }
+    .save-btn {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #ccc;
+      font-family: monospace;
+      font-size: 16px;
+      padding: 6px 12px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .save-btn:hover { background: #3a3a3a; }
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      flex-shrink: 0;
+      background: #111;
+      min-height: 0;
+    }
+    .swatches:empty { display: none; }
+    .swatch {
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      border: 2px solid #111;
+
+      position: relative;
+    }
+    .swatch:hover {
+      border-color: #fff;
+      z-index: 1;
+    }
+    .swatch .delete {
+      display: none;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 16px;
+      height: 16px;
+      background: none;
+      color: #fff;
+      font-size: 14px;
+      line-height: 16px;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+    }
+    .swatch:hover .delete {
+      display: block;
+    }
+    .harmony-row {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      background: #111;
+      padding: 6px 12px;
+      gap: 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .harmony-row::-webkit-scrollbar { display: none; }
+    .harmony-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .harmony-group .label {
+      font-family: monospace;
+      font-size: 0.65rem;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 48px;
+      flex-shrink: 0;
+    }
+    .harmony-swatch {
+      width: 28px;
+      height: 28px;
+
+      cursor: pointer;
+      border: 2px solid #222;
+      flex-shrink: 0;
+    }
+    .harmony-swatch:hover {
+      border-color: #fff;
+    }
+    @media (max-height: 600px) {
+      .hue-row { height: 48px; }
+      .swatch { width: 28px; height: 28px; }
+      .harmony-swatch { width: 24px; height: 24px; }
+      .harmony-row { padding: 4px 12px; }
+    }
   </style>
 </head>
 <body>
+  <div class="fullscreen-preview" id="fullscreenPreview"></div>
   <canvas id="sv-canvas"></canvas>
   <div class="hue-row">
     <div class="color-preview" id="preview"></div>
     <canvas id="hue-canvas"></canvas>
   </div>
+  <div class="swatches" id="swatches"></div>
+  <div class="harmony-row" id="harmonyRow"></div>
   <div class="input-row">
     <label>HEX <input type="text" class="hex-input" id="hexInput" value="#FF0000" maxlength="7" spellcheck="false"></label>
     <label>R <input type="number" class="rgb-input" id="rInput" min="0" max="255" value="255"></label>
     <label>G <input type="number" class="rgb-input" id="gInput" min="0" max="255" value="0"></label>
     <label>B <input type="number" class="rgb-input" id="bInput" min="0" max="255" value="0"></label>
     <span id="copiedMsg" class="copied-msg" style="position:static;font-size:0.75rem;color:#8f8;"></span>
+    <button class="save-btn" id="saveBtn">Save</button>
   </div>
 
   <script>
@@ -109,11 +216,15 @@
     const hueCanvas = document.getElementById('hue-canvas');
     const hueCtx = hueCanvas.getContext('2d');
     const preview = document.getElementById('preview');
+    const fullscreenPreview = document.getElementById('fullscreenPreview');
     const hexInput = document.getElementById('hexInput');
     const rInput = document.getElementById('rInput');
     const gInput = document.getElementById('gInput');
     const bInput = document.getElementById('bInput');
     const copiedMsg = document.getElementById('copiedMsg');
+    const saveBtn = document.getElementById('saveBtn');
+    const swatchesEl = document.getElementById('swatches');
+    const harmonyRow = document.getElementById('harmonyRow');
 
     let hue = 0;
     let sat = 0.5;
@@ -123,16 +234,15 @@
 
     function resize() {
       const dpr = window.devicePixelRatio || 1;
-      const hueH = 80;
-      const inputH = 44;
-      const w = window.innerWidth;
-      const h = window.innerHeight - hueH - inputH;
 
-      svCanvas.width = w * dpr;
-      svCanvas.height = h * dpr;
+      const svW = svCanvas.clientWidth;
+      const svH = svCanvas.clientHeight;
+      svCanvas.width = svW * dpr;
+      svCanvas.height = svH * dpr;
       svCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const hueW = w - 80;
+      const hueW = hueCanvas.clientWidth;
+      const hueH = hueCanvas.clientHeight;
       hueCanvas.width = hueW * dpr;
       hueCanvas.height = hueH * dpr;
       hueCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -182,6 +292,10 @@
     function drawSV() {
       const w = svCanvas.clientWidth;
       const h = svCanvas.clientHeight;
+      svCtx.save();
+      svCtx.setTransform(1, 0, 0, 1, 0, 0);
+      svCtx.clearRect(0, 0, svCanvas.width, svCanvas.height);
+      svCtx.restore();
       const [hr, hg, hb] = hsvToRgb(hue, 1, 1);
 
       const gradH = svCtx.createLinearGradient(0, 0, w, 0);
@@ -199,13 +313,8 @@
       const cx = sat * w;
       const cy = (1 - val) * h;
       svCtx.beginPath();
-      svCtx.arc(cx, cy, 12, 0, Math.PI * 2);
+      svCtx.rect(cx - 20, cy - 20, 40, 40);
       svCtx.strokeStyle = '#fff';
-      svCtx.lineWidth = 3;
-      svCtx.stroke();
-      svCtx.beginPath();
-      svCtx.arc(cx, cy, 14, 0, Math.PI * 2);
-      svCtx.strokeStyle = 'rgba(0,0,0,0.3)';
       svCtx.lineWidth = 1;
       svCtx.stroke();
     }
@@ -213,6 +322,10 @@
     function drawHue() {
       const w = hueCanvas.clientWidth;
       const h = hueCanvas.clientHeight;
+      hueCtx.save();
+      hueCtx.setTransform(1, 0, 0, 1, 0, 0);
+      hueCtx.clearRect(0, 0, hueCanvas.width, hueCanvas.height);
+      hueCtx.restore();
       const grad = hueCtx.createLinearGradient(0, 0, w, 0);
       for (let i = 0; i <= 6; i++) {
         const [r, g, b] = hsvToRgb(i * 60, 1, 1);
@@ -223,9 +336,9 @@
 
       const x = (hue / 360) * w;
       hueCtx.beginPath();
-      hueCtx.rect(x - 3, 0, 6, h);
+      hueCtx.rect(x - 2, 0, 4, h);
       hueCtx.strokeStyle = '#fff';
-      hueCtx.lineWidth = 3;
+      hueCtx.lineWidth = 1;
       hueCtx.stroke();
       hueCtx.beginPath();
       hueCtx.rect(x - 4, 0, 8, h);
@@ -234,14 +347,56 @@
       hueCtx.stroke();
     }
 
+    function hsvToHex(h, s, v) {
+      const [r, g, b] = hsvToRgb((h % 360 + 360) % 360, s, v);
+      return rgbToHex(r, g, b);
+    }
+
+    function getHarmonies(h, s, v) {
+      return [
+        { name: 'Comp', colors: [hsvToHex(h + 180, s, v)] },
+        { name: 'Analog', colors: [hsvToHex(h - 30, s, v), hsvToHex(h + 30, s, v)] },
+        { name: 'Triad', colors: [hsvToHex(h + 120, s, v), hsvToHex(h + 240, s, v)] },
+        { name: 'Split', colors: [hsvToHex(h + 150, s, v), hsvToHex(h + 210, s, v)] },
+        { name: 'Square', colors: [hsvToHex(h + 90, s, v), hsvToHex(h + 180, s, v), hsvToHex(h + 270, s, v)] },
+      ];
+    }
+
+    function updateHarmonies() {
+      const harmonies = getHarmonies(hue, sat, val);
+      harmonyRow.innerHTML = '';
+      harmonies.forEach(group => {
+        const g = document.createElement('div');
+        g.className = 'harmony-group';
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = group.name;
+        g.appendChild(label);
+        group.colors.forEach(hex => {
+          const sw = document.createElement('div');
+          sw.className = 'harmony-swatch';
+          sw.style.background = hex;
+          sw.title = hex;
+          sw.addEventListener('click', () => {
+            const n = parseInt(hex.slice(1), 16);
+            setFromRgb((n >> 16) & 255, (n >> 8) & 255, n & 255);
+          });
+          g.appendChild(sw);
+        });
+        harmonyRow.appendChild(g);
+      });
+    }
+
     function updateColor() {
       const [r, g, b] = hsvToRgb(hue, sat, val);
       const hex = rgbToHex(r, g, b);
       preview.style.background = hex;
+      fullscreenPreview.style.background = hex;
       hexInput.value = hex;
       rInput.value = r;
       gInput.value = g;
       bInput.value = b;
+      updateHarmonies();
       drawSV();
       drawHue();
     }
@@ -255,7 +410,7 @@
       updateColor();
     }
 
-    svCanvas.addEventListener('mousedown', (e) => { draggingSV = true; handleSV(e); });
+    svCanvas.addEventListener('mousedown', (e) => { draggingSV = true; document.body.style.cursor = 'crosshair'; handleSV(e); });
     svCanvas.addEventListener('touchstart', (e) => { draggingSV = true; handleSV(e); e.preventDefault(); });
 
     function handleHue(e) {
@@ -265,7 +420,7 @@
       updateColor();
     }
 
-    hueCanvas.addEventListener('mousedown', (e) => { draggingHue = true; handleHue(e); });
+    hueCanvas.addEventListener('mousedown', (e) => { draggingHue = true; document.body.style.cursor = 'crosshair'; handleHue(e); });
     hueCanvas.addEventListener('touchstart', (e) => { draggingHue = true; handleHue(e); e.preventDefault(); });
 
     window.addEventListener('mousemove', (e) => {
@@ -276,13 +431,24 @@
       if (draggingSV) handleSV(e);
       if (draggingHue) handleHue(e);
     });
-    window.addEventListener('mouseup', () => { draggingSV = false; draggingHue = false; });
+    window.addEventListener('mouseup', () => {
+      draggingSV = false;
+      draggingHue = false;
+      document.body.style.cursor = '';
+    });
     window.addEventListener('touchend', () => { draggingSV = false; draggingHue = false; });
 
     function setFromRgb(r, g, b) {
       [hue, sat, val] = rgbToHsv(r, g, b);
       updateColor();
     }
+
+    preview.addEventListener('click', () => {
+      fullscreenPreview.classList.add('active');
+    });
+    fullscreenPreview.addEventListener('click', () => {
+      fullscreenPreview.classList.remove('active');
+    });
 
     hexInput.addEventListener('input', () => {
       const v = hexInput.value.trim();
@@ -310,7 +476,88 @@
     gInput.addEventListener('input', handleRgbInput);
     bInput.addEventListener('input', handleRgbInput);
 
+    // Saved swatches
+    function getSavedColors() {
+      try { return JSON.parse(localStorage.getItem('picker-colors') || '[]'); }
+      catch { return []; }
+    }
+
+    function saveSavedColors(colors) {
+      localStorage.setItem('picker-colors', JSON.stringify(colors));
+    }
+
+    function removeSwatch(i) {
+      const c = getSavedColors();
+      c.splice(i, 1);
+      saveSavedColors(c);
+      renderSwatches();
+      resize();
+    }
+
+    function renderSwatches() {
+      const colors = getSavedColors();
+      swatchesEl.innerHTML = '';
+      colors.forEach((hex, i) => {
+        const el = document.createElement('div');
+        el.className = 'swatch';
+        el.style.background = hex;
+        el.title = hex;
+
+        const del = document.createElement('div');
+        del.className = 'delete';
+        del.textContent = '×';
+        del.addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeSwatch(i);
+        });
+        el.appendChild(del);
+
+        let longPressTimer;
+        el.addEventListener('touchstart', (e) => {
+          longPressTimer = setTimeout(() => {
+            removeSwatch(i);
+          }, 500);
+        });
+        el.addEventListener('touchend', () => clearTimeout(longPressTimer));
+        el.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+
+        el.addEventListener('click', () => {
+          const n = parseInt(hex.slice(1), 16);
+          setFromRgb((n >> 16) & 255, (n >> 8) & 255, n & 255);
+        });
+        el.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          removeSwatch(i);
+        });
+        swatchesEl.appendChild(el);
+      });
+    }
+
+    saveBtn.addEventListener('click', () => {
+      const hex = hexInput.value;
+      const colors = getSavedColors();
+      if (!colors.includes(hex)) {
+        colors.push(hex);
+        saveSavedColors(colors);
+        renderSwatches();
+        resize();
+      }
+    });
+
+    renderSwatches();
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'h' || e.key === 'H') {
+        const panels = [swatchesEl, harmonyRow, document.querySelector('.input-row')];
+        const hidden = panels[0].style.display === 'none';
+        panels.forEach(el => el.style.display = hidden ? '' : 'none');
+        resize();
+      }
+    });
+
     window.addEventListener('resize', resize);
+    window.addEventListener('load', () => { resize(); updateColor(); });
     resize();
     updateColor();
   </script>
