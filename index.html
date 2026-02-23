@@ -22,7 +22,7 @@
       flex: 1;
       min-height: 0;
       display: block;
-      cursor: crosshair;
+      cursor: crosshair !important;
       touch-action: none;
     }
     .hue-row {
@@ -36,7 +36,7 @@
       flex: 1;
       height: 100%;
       display: block;
-      cursor: crosshair;
+      cursor: crosshair !important;
       touch-action: none;
     }
     .color-preview {
@@ -79,6 +79,12 @@
       padding: 6px 8px;
       outline: none;
     }
+    .hex-label {
+      cursor: pointer;
+    }
+    .hex-label:hover {
+      color: #fff;
+    }
     .input-row .hex-input {
       width: 110px;
     }
@@ -119,7 +125,7 @@
       width: 36px;
       height: 36px;
       cursor: pointer;
-      border: 2px solid #111;
+      border: none;
 
       position: relative;
     }
@@ -150,7 +156,7 @@
       align-items: center;
       flex-shrink: 0;
       background: #111;
-      padding: 6px 12px;
+      padding: 0 12px;
       gap: 16px;
       overflow-x: auto;
       scrollbar-width: none;
@@ -159,7 +165,7 @@
     .harmony-group {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 0;
       flex-shrink: 0;
     }
     .harmony-group .label {
@@ -176,7 +182,7 @@
       height: 28px;
 
       cursor: pointer;
-      border: 2px solid #222;
+      border: none;
       flex-shrink: 0;
     }
     .harmony-swatch:hover {
@@ -200,7 +206,8 @@
   <div class="swatches" id="swatches"></div>
   <div class="harmony-row" id="harmonyRow"></div>
   <div class="input-row">
-    <label>HEX <input type="text" class="hex-input" id="hexInput" value="#FF0000" maxlength="7" spellcheck="false"></label>
+    <span class="hex-label" id="hexLabel">HEX</span>
+    <input type="text" class="hex-input" id="hexInput" value="#FF0000" maxlength="7" spellcheck="false">
     <label>R <input type="number" class="rgb-input" id="rInput" min="0" max="255" value="255"></label>
     <label>G <input type="number" class="rgb-input" id="gInput" min="0" max="255" value="0"></label>
     <label>B <input type="number" class="rgb-input" id="bInput" min="0" max="255" value="0"></label>
@@ -452,7 +459,7 @@
       }
     });
 
-    hexInput.addEventListener('click', () => {
+    document.getElementById('hexLabel').addEventListener('click', () => {
       navigator.clipboard.writeText(hexInput.value);
       copiedMsg.textContent = 'Copied!';
       setTimeout(() => copiedMsg.textContent = '', 1500);
@@ -541,6 +548,27 @@
 
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
+      if (e.key === 's' || e.key === 'S') {
+        const hex = hexInput.value;
+        const colors = getSavedColors();
+        if (!colors.includes(hex)) {
+          colors.push(hex);
+          saveSavedColors(colors);
+          renderSwatches();
+          resize();
+        }
+      }
+      if (e.key === 'd' || e.key === 'D') {
+        const hex = hexInput.value;
+        const colors = getSavedColors();
+        const idx = colors.indexOf(hex);
+        if (idx !== -1) {
+          colors.splice(idx, 1);
+          saveSavedColors(colors);
+          renderSwatches();
+          resize();
+        }
+      }
       if (e.key === 'h' || e.key === 'H') {
         const panels = [swatchesEl, harmonyRow, document.querySelector('.input-row')];
         const hidden = panels[0].style.display === 'none';
