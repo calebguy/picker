@@ -72,22 +72,20 @@
     }
     .input-row input {
       background: #2a2a2a;
-      border: 1px solid #444;
+      border: none;
       color: #fff;
       font-family: monospace;
       font-size: 16px;
       padding: 6px 8px;
       outline: none;
     }
-    .input-row input:focus {
-      border-color: #888;
-    }
     .input-row .hex-input {
       width: 110px;
     }
     .input-row .rgb-input {
       width: 64px;
-      text-align: center;
+      text-align: left;
+      padding-left: 4px;
     }
     .copied-msg {
       position: fixed;
@@ -99,7 +97,7 @@
     }
     .save-btn {
       background: #2a2a2a;
-      border: 1px solid #444;
+      border: none;
       color: #ccc;
       font-family: monospace;
       font-size: 16px;
@@ -338,11 +336,6 @@
       hueCtx.beginPath();
       hueCtx.rect(x - 2, 0, 4, h);
       hueCtx.strokeStyle = '#fff';
-      hueCtx.lineWidth = 1;
-      hueCtx.stroke();
-      hueCtx.beginPath();
-      hueCtx.rect(x - 4, 0, 8, h);
-      hueCtx.strokeStyle = 'rgba(0,0,0,0.3)';
       hueCtx.lineWidth = 1;
       hueCtx.stroke();
     }
